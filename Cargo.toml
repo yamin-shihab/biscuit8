@@ -1,0 +1,11 @@
+[package]
+name = "biscuit8"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fastrand = "1.9.0"
+nalgebra = "0.32.2"
+pixels = "0.12.1"
+rodio = "0.17.1"
+winit = "0.28.3"
