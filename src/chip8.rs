@@ -1,4 +1,4 @@
-use crate::drivers::Drivers;
+use crate::{drivers::Drivers, instruction::Instruction};
 
 // How many bytes to give to RAM
 const RAM_SIZE: usize = 0x1000;
@@ -29,17 +29,17 @@ const FONT_SPRITES: [u8; 0x50] = [
 // Struct used to represent the emulator
 pub struct Chip8 {
     ram: [u8; RAM_SIZE],
-    vx: [u8; 0x10],
+    v: [u8; 0x10],
     i: usize,
     pc: usize,
-    stack: Vec<usize>,
     dt: u8,
     st: u8,
+    stack: Vec<usize>,
     drivers: Box<dyn Drivers>,
 }
 
 impl Chip8 {
-    // Create a new instance off an emulator
+    // Create an emulator from the given rom and set of drivers
     pub fn new(rom: &[u8], drivers: Box<dyn Drivers>) -> Result<Self, &str> {
         if rom.len() > RAM_SIZE - ROM_LOC {
             return Err("ROM size too big to fit into RAM");
@@ -51,13 +51,31 @@ impl Chip8 {
 
         Ok(Self {
             ram,
-            vx: [0; 0x10],
+            v: [0; 0x10],
             i: 0,
             pc: ROM_LOC,
-            stack: Vec::new(),
             dt: 0,
             st: 0,
+            stack: Vec::new(),
             drivers,
         })
+    }
+
+    // Performs one iteration of the fetch-decode-execute cycle, and returns whether the instruction was executed or not, in the case of it being the last one
+    pub fn cycle(&mut self) -> bool {
+        self.fetch_raw_instruction()
+            .map_or(false, |raw_instruction| {
+                let instruction = Instruction::new(raw_instruction);
+                self.pc += 2;
+                instruction.execute();
+                true
+            })
+    }
+
+    // Fetches the current instruction from the program counter if there is still one
+    fn fetch_raw_instruction(&self) -> Option<u16> {
+        let first = self.ram.get(self.pc)?;
+        let second = self.ram.get(self.pc + 1)?;
+        Some(u16::from_be_bytes([*first, *second]))
     }
 }
