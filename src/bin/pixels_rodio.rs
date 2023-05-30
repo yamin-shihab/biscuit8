@@ -6,7 +6,7 @@ struct PixelsRodio {}
 
 impl PixelsRodio {
     // Creates a new set of drivers for pixles + winit graphics and rodio audio
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {}
     }
 }
@@ -18,14 +18,13 @@ fn main() {
     let chip8 = {
         let path = env::args().nth(1).expect("Please give a path to the ROM");
         let rom = fs::read(path).expect("Failed to load file");
-        let drivers = Box::new(PixelsRodio::new());
-        Chip8::new(&rom, drivers).expect("Failed to create emulator instance")
+        Chip8::new(&rom, PixelsRodio::new()).expect("Failed to create emulator instance")
     };
     instruction_cycle(chip8);
 }
 
 // The fetch-decode-execute cycle
-fn instruction_cycle(mut chip8: Chip8) {
+fn instruction_cycle(mut chip8: Chip8<PixelsRodio>) {
     while chip8.cycle() {}
     println!("ROM ended")
 }

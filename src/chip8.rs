@@ -27,7 +27,7 @@ const FONT_SPRITES: [u8; 0x50] = [
 ];
 
 // Struct used to represent the emulator
-pub struct Chip8 {
+pub struct Chip8<T: Drivers> {
     ram: [u8; RAM_SIZE],
     v: [u8; 0x10],
     i: usize,
@@ -35,12 +35,12 @@ pub struct Chip8 {
     dt: u8,
     st: u8,
     stack: Vec<usize>,
-    drivers: Box<dyn Drivers>,
+    drivers: T,
 }
 
-impl Chip8 {
+impl<T: Drivers> Chip8<T> {
     // Create an emulator from the given rom and set of drivers
-    pub fn new(rom: &[u8], drivers: Box<dyn Drivers>) -> Result<Self, &str> {
+    pub fn new(rom: &[u8], drivers: T) -> Result<Self, &str> {
         if rom.len() > RAM_SIZE - ROM_LOC {
             return Err("ROM size too big to fit into RAM");
         }
@@ -61,21 +61,26 @@ impl Chip8 {
         })
     }
 
-    // Performs one iteration of the fetch-decode-execute cycle, and returns whether the instruction was executed or not, in the case of it being the last one
+    // Performs one iteration of the fetch-decode-execute cycle, and returns whether the instruction was executed or not, in the case of it being unknown or the last one
     pub fn cycle(&mut self) -> bool {
-        self.fetch_raw_instruction()
-            .map_or(false, |raw_instruction| {
-                let instruction = Instruction::new(raw_instruction);
-                self.pc += 2;
-                instruction.execute();
-                true
-            })
+        self.fetch_instruction().map_or(false, |instruction| {
+            self.pc += 2;
+            self.decode_execute(instruction);
+            true
+        })
     }
 
     // Fetches the current instruction from the program counter if there is still one
-    fn fetch_raw_instruction(&self) -> Option<u16> {
+    fn fetch_instruction(&self) -> Option<Instruction> {
         let first = self.ram.get(self.pc)?;
         let second = self.ram.get(self.pc + 1)?;
-        Some(u16::from_be_bytes([*first, *second]))
+        Some(Instruction::new(u16::from_be_bytes([*first, *second])))
+    }
+
+    // Decodes and executes
+    fn decode_execute(&mut self, instruction: Instruction) {
+        match instruction.nibbles {
+            _ => (),
+        }
     }
 }
