@@ -1,7 +1,7 @@
 // Used to represent an instruction (opcode and values)
 pub struct Instruction {
     pub nibbles: (u8, u8, u8, u8),
-    raw_instruction: u16,
+    pub raw_instruction: u16,
 }
 
 impl Instruction {

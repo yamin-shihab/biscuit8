@@ -1,3 +1,3 @@
 pub mod chip8;
-pub mod drivers;
+pub mod drv;
 pub mod instruction;
