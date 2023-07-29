@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-fastrand = "1.9.0"
-pixels = "0.12.1"
+fastrand = "2.0.0"
+pixels = "0.13.0"
 rodio = "0.17.1"
 winit = "0.28.3"
