@@ -1,12 +1,14 @@
+//! Provides the logic of the emulator itself, primarily through the [`Chip8`] struct.
+
 use crate::instruction::Instruction;
 
-// How many bytes to give to RAM
+/// How many bytes to allocate for the RAM.
 const RAM_SIZE: usize = 0x1000;
 
-// Where to put the ROM in the RAM
+/// Where to put the ROM in the RAM.
 const ROM_LOC: usize = 0x200;
 
-// The sprites for all hexadecimal digits (stored at beginning of RAM)
+/// The sprites for every hexadecimal digit as a font (stored at the beginning of the RAM).
 const FONT_SPRITES: [u8; 0x50] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -26,7 +28,7 @@ const FONT_SPRITES: [u8; 0x50] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
-// Struct used to represent the emulator
+/// Used to represent the emulator.
 pub struct Chip8 {
     ram: [u8; RAM_SIZE],
     v: [u8; 0x10],
@@ -39,7 +41,7 @@ pub struct Chip8 {
 }
 
 impl Chip8 {
-    // Create an emulator from the given rom
+    /// Create an emulator from the given rom.
     pub fn new(rom: &[u8]) -> Result<Self, &str> {
         if rom.len() > RAM_SIZE - ROM_LOC {
             return Err("ROM size too big to fit into RAM");
@@ -61,7 +63,8 @@ impl Chip8 {
         })
     }
 
-    // Performs one iteration of the fetch-decode-execute cycle, and returns whether the instruction was executed or not, in the case of it being the last one
+    /// Performs one iteration of the fetch-decode-execute cycle, and returns whether the
+    /// instruction was executed or not (if it was the last one).
     pub fn cycle(&mut self) -> bool {
         self.fetch_instruction().map_or(false, |instruction| {
             self.instruction = instruction;
@@ -71,14 +74,14 @@ impl Chip8 {
         })
     }
 
-    // Fetches the current instruction from the program counter if there is still one
+    /// Fetches the current instruction from the program counter (if there still is one).
     fn fetch_instruction(&self) -> Option<Instruction> {
         let first = self.ram.get(self.pc)?;
         let second = self.ram.get(self.pc + 1)?;
         Some(Instruction::new(u16::from_be_bytes([*first, *second])))
     }
 
-    // Decodes the current instruction and executes the appropriate method
+    /// Decodes the current instruction and executes the appropriate method.
     fn decode_execute(&mut self) {
         match self.instruction.nibbles {
             (0, 0, 0, 0) => (),
@@ -120,172 +123,179 @@ impl Chip8 {
         }
     }
 
-    // Clears the screen
+    /// Clears the screen.
     fn clr_screen(&mut self) {
         todo!();
     }
 
-    // Returns from the current subroutine using the stack
+    /// Returns from the current subroutine using the stack.
     fn ret_subroutine(&mut self) {
         todo!();
     }
 
-    // Jumps to the given address
+    /// Jumps to the given address.
     fn jp_addr(&mut self) {
         todo!();
     }
 
-    // Calls a subroutine using the stack
+    /// Calls a subroutine using the stack.
     fn call_subroutine(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if register is equal to byte
+    /// Skips the next instruction if the register is equal to the byte.
     fn skip_eq_byte(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if register isn't equal to byte
+    /// Skips the next instruction if the register isn't equal to the byte.
     fn skip_not_byte(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if register is equal to register
+    /// Skips the next instruction if the register is equal to the register.
     fn skip_eq_reg(&mut self) {
         todo!();
     }
 
-    // Sets register to byte
+    /// Sets the register to the byte
     fn set_reg_byte(&mut self) {
         todo!();
     }
 
-    // Adds byte to register
+    /// Adds the byte to the register.
     fn add_byte(&mut self) {
         todo!();
     }
 
-    // Sets register to register
+    /// Sets the register to the register.
     fn set_reg_reg(&mut self) {
         todo!();
     }
 
-    // Applies bitwise OR on register with register
+    /// Applies a bitwise OR operation onto the register with the register.
     fn or_reg(&mut self) {
         todo!();
     }
 
-    // Applies bitwise AND on register with register
+    /// Applies a bitwise AND operation onto the register with the register.
     fn and_reg(&mut self) {
         todo!();
     }
 
-    // Applies bitwise XOR on register with register
+    /// Applies a bitwise XOR operation onto the register with the register.
     fn xor_reg(&mut self) {
         todo!();
     }
 
-    // Adds register to register, and sets the flag register in the case of a carry
+    /// Adds the register to the register and sets the flag register in the case of a carry.
     fn add_reg(&mut self) {
         todo!();
     }
 
-    // Subtracts register from register, and sets the flag register in the case of a borrow
+    /// Subtracts the register from the register and sets the flag register in the case of a borrow.
     fn sub_reg(&mut self) {
         todo!();
     }
 
-    // Sets the flag register to the least significant bit and right shifts register by one
+    /// Sets the flag register to the least significant bit and right shifts the register by one.
     fn right_shift(&mut self) {
         todo!();
     }
 
-    // Sets register to register minus it, and sets the flag register in the case of a borrow
+    /// Sets the register to the register minus it and sets the flag register in the case of a
+    /// borrow.
     fn rev_sub_reg(&mut self) {
         todo!();
     }
 
-    // Sets the flag register to the most significant bit and left shifts register by one
+    /// Sets the flag register to the most significant bit and left shifts the register by one.
     fn left_shift(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if register isn't equal to register by incrementing the pogram counter
+    /// Skips the next instruction if the register isn't equal to the register by incrementing the
+    /// pogram counter.
     fn skip_not_reg(&mut self) {
         todo!();
     }
 
-    // Sets the index register to address
+    /// Sets the index register to the address.
     fn set_idx_addr(&mut self) {
         todo!();
     }
 
-    // Sets the program counter to address plus the first register
+    /// Sets the program counter to the address plus the first register.
     fn jp_add_addr(&mut self) {
         todo!();
     }
 
-    // Sets register to the result of bitwise AND on random number and byte
+    /// Sets the register to the result of a bitwise AND operation on a random number and the byte.
     fn rand_and_byte(&mut self) {
         todo!();
     }
 
-    // Draws sprite located in index register onto screen, and the flag register is set if a pixel collision occurs; the location of the sprite is represented using registers, and height is given by nibble
+    /// Draws the sprite located in the index register onto the screen, and the flag register is set
+    /// if a pixel collision occurs; the location of the sprite is represented using the registers,
+    /// and height is defined by the nibble.
     fn drw_sprite(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if the key represented in register is pressed
+    /// Skips the next instruction if the key represented in the register is pressed.
     fn skip_eq_key(&mut self) {
         todo!();
     }
 
-    // Skips the next instruction if the key represented in register isn't pressed
+    /// Skips the next instruction if the key represented in the register isn't pressed.
     fn skip_not_key(&mut self) {
         todo!();
     }
 
-    // Sets register to the delay timer
+    /// Sets the register to the delay timer.
     fn set_reg_delay(&mut self) {
         todo!();
     }
 
-    // Waits until a key is pressed and released before setting register to it
+    /// Waits until a key is pressed and released before setting the register to it.
     fn set_reg_key(&mut self) {
         todo!();
     }
 
-    // Sets the delay timer to register
+    /// Sets the delay timer to the register.
     fn set_delay_reg(&mut self) {
         todo!();
     }
 
-    // Sets the sound timer to register
+    /// Sets the sound timer to the register.
     fn set_sound_reg(&mut self) {
         todo!();
     }
 
-    // Adds register to the index register
+    /// Adds the register to the index register.
     fn add_idx_reg(&mut self) {
         todo!();
     }
 
-    // Sets the index register to the font character represented by register
+    /// Sets the index register to the font character represented by the register.
     fn set_idx_char(&mut self) {
         todo!();
     }
 
-    // Sets the location in RAM represented by the index register to the binary-coded decimal representation of register (hundreds, tens, and ones all in decimal)
+    /// Sets the location in RAM represented by the index register to the binary-coded decimal
+    /// representation of the register (hundreds, tens, and ones all in decimal).
     fn set_idx_bcd(&mut self) {
         todo!();
     }
 
-    // Sets the location in RAM represented by the index register to the range of registers from the first to register
+    /// Sets the location in RAM represented by the index register to the range of registers from
+    /// the first to the register.
     fn set_idx_reg(&mut self) {
         todo!();
     }
 
-    // Sets the range of registers from the first to register to the location in RAM represented by the index register
+    /// Sets the range of registers from the first to the register to the location in RAM
+    /// represented by the index register.
     fn set_reg_idx(&mut self) {
         todo!();
     }

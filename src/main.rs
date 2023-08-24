@@ -1,10 +1,13 @@
+//! This program/binary takes in some CLI arguments, parses them, and runs the emulator with some
+//! appropriate settings, like the frontend, clock rate, and keyboard layout.
+
 use biscuit8::{
     chip8::Chip8,
     drv::{pixels::PixelsDrv, Drv},
 };
 use std::{env, fs};
 
-// Gets the ROM from the given path, creates an emulator, and starts the main instruction loop
+/// Gets the ROM from the given path, creates an emulator, and starts the main instruction loop.
 fn main() {
     let chip8 = {
         let path = env::args()

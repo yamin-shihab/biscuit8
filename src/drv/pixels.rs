@@ -1,3 +1,7 @@
+//! A frontend using winit for window managemenet and input, pixels for rendering, rodio for audio,
+//! and fastrand for randomness, primarily provided by the [`PixelsDrv`] struct implemeneting the
+//! [`Drv`] trait.
+
 use crate::{chip8::Chip8, drv::Drv};
 use pixels::{Pixels, SurfaceTexture};
 use winit::{
@@ -7,11 +11,14 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-// Screen dimensions
+/// The width of the screen.
 const WIDTH: u32 = 64;
+
+/// The height of the screen.
 const HEIGHT: u32 = 32;
 
-// Drivers that use pixels and winit for graphics, input, and window creation, rodio for audio, and fastrand for randomness
+/// Drivers that use winit for window managemenet and input, pixels for rendering, rodio for audio,
+/// and fastrand for randomness.
 pub struct PixelsDrv {
     chip8: Chip8,
     event_loop: Option<EventLoop<()>>,
@@ -20,6 +27,7 @@ pub struct PixelsDrv {
 }
 
 impl PixelsDrv {
+    /// Handles winit events (window management, logic, rendering).
     fn event_handler(&mut self, event: Event<()>, control_flow: &mut ControlFlow) {
         match event {
             Event::WindowEvent { event, .. } => self.window_event_handler(event, control_flow),
@@ -29,6 +37,7 @@ impl PixelsDrv {
         }
     }
 
+    /// Handles winit window events (scale, window state, input).
     fn window_event_handler(&mut self, event: WindowEvent, control_flow: &mut ControlFlow) {
         match event {
             WindowEvent::Resized(size) => self
@@ -45,8 +54,10 @@ impl PixelsDrv {
         }
     }
 
+    /// Handles keyboard input.
     fn input_handler(&mut self, input: KeyboardInput) {}
 
+    /// Updates the emulator and gets the frontend to act accordingly.
     fn cycle(&mut self, control_flow: &mut ControlFlow) {
         if !self.chip8.cycle() {
             println!("Successfully finished executing program");
@@ -82,6 +93,7 @@ impl Drv for PixelsDrv {
     }
 
     fn instruction_loop(mut self) {
+        // The event loop is an option so that methods can be called from within the move closure
         let event_loop = self
             .event_loop
             .expect("Event loop should've been initialized");
