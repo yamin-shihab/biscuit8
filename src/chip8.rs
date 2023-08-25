@@ -29,6 +29,7 @@ const FONT_SPRITES: [u8; 0x50] = [
 ];
 
 /// Used to represent the emulator.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Chip8 {
     ram: [u8; RAM_SIZE],
     v: [u8; 0x10],

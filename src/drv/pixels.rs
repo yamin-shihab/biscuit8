@@ -19,6 +19,7 @@ const HEIGHT: u32 = 32;
 
 /// Drivers that use winit for window managemenet and input, pixels for rendering, rodio for audio,
 /// and fastrand for randomness.
+#[derive(Debug)]
 pub struct PixelsDrv {
     chip8: Chip8,
     event_loop: Option<EventLoop<()>>,

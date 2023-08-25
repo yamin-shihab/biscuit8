@@ -3,5 +3,6 @@
 //! and randomness.
 
 pub mod chip8;
+pub mod cli;
 pub mod drv;
 pub mod instruction;
