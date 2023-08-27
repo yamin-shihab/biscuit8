@@ -1,14 +1,16 @@
-//! Provides the logic of the emulator itself, primarily through the [`Chip8`] struct.
+//! This module provides the logic of the emulator itself, primarily through the [`Chip8`] struct.
+//! The error type [`Chip8Error`] is also provided.
 
 use crate::instruction::Instruction;
+use thiserror::Error;
 
-/// How many bytes to allocate for the RAM.
+/// How many bytes to allocate for the emulator's RAM.
 const RAM_SIZE: usize = 0x1000;
 
-/// Where to put the ROM in the RAM.
+/// Where to put the ROM in the emulator's RAM.
 const ROM_LOC: usize = 0x200;
 
-/// The sprites for every hexadecimal digit as a font (stored at the beginning of the RAM).
+/// The sprites for every hexadecimal digit as a font (stored at the beginning of the emulator's RAM).
 const FONT_SPRITES: [u8; 0x50] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -29,7 +31,7 @@ const FONT_SPRITES: [u8; 0x50] = [
 ];
 
 /// Used to represent the emulator.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Chip8 {
     ram: [u8; RAM_SIZE],
     v: [u8; 0x10],
@@ -42,10 +44,10 @@ pub struct Chip8 {
 }
 
 impl Chip8 {
-    /// Create an emulator from the given rom.
-    pub fn new(rom: &[u8]) -> Result<Self, &str> {
+    /// Create an emulator from the given ROM.
+    pub fn new(rom: &[u8]) -> Result<Self, Chip8Error> {
         if rom.len() > RAM_SIZE - ROM_LOC {
-            return Err("ROM size too big to fit into RAM");
+            return Err(Chip8Error::RomTooBig);
         }
 
         let mut ram = [0; RAM_SIZE];
@@ -65,7 +67,7 @@ impl Chip8 {
     }
 
     /// Performs one iteration of the fetch-decode-execute cycle, and returns whether the
-    /// instruction was executed or not (if it was the last one).
+    /// [`Instruction`] was executed or not (if it was the last one).
     pub fn cycle(&mut self) -> bool {
         self.fetch_instruction().map_or(false, |instruction| {
             self.instruction = instruction;
@@ -75,14 +77,14 @@ impl Chip8 {
         })
     }
 
-    /// Fetches the current instruction from the program counter (if there still is one).
+    /// Fetches the current [`Instruction`] from the program counter (if there still is one).
     fn fetch_instruction(&self) -> Option<Instruction> {
         let first = self.ram.get(self.pc)?;
         let second = self.ram.get(self.pc + 1)?;
         Some(Instruction::new(u16::from_be_bytes([*first, *second])))
     }
 
-    /// Decodes the current instruction and executes the appropriate method.
+    /// Decodes the current [`Instruction`] and executes the appropriate method.
     fn decode_execute(&mut self) {
         match self.instruction.nibbles {
             (0, 0, 0, 0) => (),
@@ -300,4 +302,17 @@ impl Chip8 {
     fn set_reg_idx(&mut self) {
         todo!();
     }
+}
+
+impl Default for Chip8 {
+    fn default() -> Self {
+        Self::new(&[]).expect("Empty ROM should've fit in the emulator's RAM.")
+    }
+}
+
+/// Used to describe possibble errors caused by the emulator
+#[derive(Clone, Copy, Debug, Eq, Error, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Chip8Error {
+    #[error("ROM size exceeds the amount of RAM provided by the CHIP-8 emulator.")]
+    RomTooBig,
 }

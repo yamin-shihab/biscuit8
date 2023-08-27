@@ -1,7 +1,7 @@
-//! Provides a way for CHIP-8's 16-bit instructions to be represented (the [`Instruction`] struct)
+//! Provides a way for CHIP-8's 16-bit instructions to be represented (the [`Instruction`] struct).
 
 /// Used to represent an instruction (opcode and values).
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Instruction {
     pub nibbles: (u8, u8, u8, u8),
     pub raw_instruction: u16,
