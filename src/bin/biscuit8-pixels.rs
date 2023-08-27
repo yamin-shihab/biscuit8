@@ -2,7 +2,10 @@
 //! input, [`rodio`] for audio, and [`fastrand`] for randomness, primarily provided by
 //! [`PixelsFrontend`]. Errors are also represented by [`PixelsError`].
 
-use biscuit8::{chip8::Chip8, cli::Args};
+use biscuit8::{
+    chip8::{Chip8, Chip8Error},
+    cli::Args,
+};
 use pixels::{Error, Pixels, SurfaceTexture, TextureError};
 use std::process;
 use thiserror::Error;
@@ -56,7 +59,7 @@ impl PixelsFrontend {
     }
 
     /// The main loop managed by [`winit`]; almost everything happens here.
-    fn instruction_loop(mut self) {
+    fn main_loop(mut self) {
         // The event loop is an option so that methods can be called from within the move closure.
         let event_loop = self
             .event_loop
@@ -80,7 +83,7 @@ impl PixelsFrontend {
     ) -> Result<(), PixelsError> {
         match event {
             Event::WindowEvent { event, .. } => self.window_event_handler(event, control_flow)?,
-            Event::MainEventsCleared => self.cycle(control_flow),
+            Event::MainEventsCleared => self.instruction_cycle(control_flow),
             Event::RedrawRequested(_) => self.pixels.render()?,
             _ => (),
         }
@@ -109,12 +112,20 @@ impl PixelsFrontend {
     fn input_handler(&mut self, input: KeyboardInput) {}
 
     /// Updates the emulator and gets the frontend to act accordingly.
-    fn cycle(&mut self, control_flow: &mut ControlFlow) {
-        if !self.chip8.cycle() {
-            println!("Successfully finished executing ROM.");
-            control_flow.set_exit();
+    fn instruction_cycle(&mut self, control_flow: &mut ControlFlow) {
+        let Err(err) = self.chip8.instruction_cycle() else {
+            return;
+        };
+        match err {
+            Chip8Error::NoMoreInstructions => {
+                println!("Successfully finished executing ROM.");
+                control_flow.set_exit();
+            }
+            Chip8Error::UnknownInstruction(instruction) => {
+                eprintln!("Unknown instruction opcode: {}.", instruction);
+            }
+            _ => (),
         }
-        //self.window.request_redraw();
     }
 }
 
@@ -146,5 +157,5 @@ fn main() {
         eprintln!("Error while setting up pixels frontend: {}", err);
         process::exit(1)
     });
-    frontend.instruction_loop();
+    frontend.main_loop();
 }
