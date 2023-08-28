@@ -1,0 +1,13 @@
+[package]
+name = "biscuit8-pixels"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+argh = "0.1.12"
+biscuit8 = { path = ".." }
+pixels = "0.13.0"
+rodio = "0.17.1"
+thiserror = "1.0.47"
+winit = "0.28.3"

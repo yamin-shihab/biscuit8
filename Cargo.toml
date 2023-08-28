@@ -3,10 +3,10 @@ name = "biscuit8"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = ["biscuit8-pixels"]
+
 [dependencies]
 argh = "0.1.12"
 fastrand = "2.0.0"
-pixels = "0.13.0"
-rodio = "0.17.1"
 thiserror = "1.0.47"
-winit = "0.28.3"

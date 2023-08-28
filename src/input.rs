@@ -27,7 +27,7 @@ impl FromStr for Layout {
     type Err = ParseLayoutError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_ref() {
+        match s.to_lowercase().as_ref() {
             "qwerty" => Ok(Layout::Qwerty),
             "colemak" => Ok(Layout::Colemak),
             _ => Err(ParseLayoutError),
