@@ -1,7 +1,10 @@
 //! CLI argument parsing is done here; you can use [`argh`] to get a struct containing things like
 //! the path to the ROM and other options/settings.
 
-use crate::chip8::{Chip8, Chip8Error};
+use crate::{
+    chip8::{Chip8, Chip8Error},
+    input::Layout,
+};
 use argh::FromArgs;
 use std::{fs, io::Error, path::PathBuf};
 use thiserror::Error;
@@ -9,6 +12,9 @@ use thiserror::Error;
 /// A CHIP-8 emulator with support for multiple frontends and options.
 #[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, FromArgs)]
 pub struct Args {
+    /// the keyboard layout to use (QWERTY and Colemak supported)
+    #[argh(option, short = 'l', default = "Layout::default()")]
+    pub layout: Layout,
     /// path of the ROM to execute
     #[argh(positional)]
     pub path: PathBuf,

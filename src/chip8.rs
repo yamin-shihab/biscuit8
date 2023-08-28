@@ -10,7 +10,8 @@ const RAM_SIZE: usize = 0x1000;
 /// Where to put the ROM in the emulator's RAM.
 const ROM_LOC: usize = 0x200;
 
-/// The sprites for every hexadecimal digit as a font (stored at the beginning of the emulator's RAM).
+/// The sprites for every hexadecimal digit as a font (stored at the beginning of the emulator's
+/// RAM).
 const FONT_SPRITES: [u8; 0x50] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1

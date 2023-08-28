@@ -1,10 +1,11 @@
 //! A [`biscuit8`] frontend using [`pixels`] for rendering, [`winit`] for window managemenet and
-//! input, [`rodio`] for audio, and [`fastrand`] for randomness, primarily provided by
-//! [`PixelsFrontend`]. Errors are also represented by [`PixelsError`].
+//! input, and [`rodio`] for audio, primarily provided by [`PixelsFrontend`]. Errors are also
+//! represented by [`PixelsError`].
 
 use biscuit8::{
     chip8::{Chip8, Chip8Error},
     cli::Args,
+    input::{Keys, Layout},
 };
 use pixels::{Error, Pixels, SurfaceTexture, TextureError};
 use std::process;
@@ -12,7 +13,7 @@ use thiserror::Error;
 use winit::{
     dpi::PhysicalSize,
     error::OsError,
-    event::{Event, KeyboardInput, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -23,11 +24,13 @@ const WIDTH: u32 = 64;
 /// The height of the screen.
 const HEIGHT: u32 = 32;
 
-/// A frontend that uses [`pixels`] for rendering, [`winit`] for window managemenet and input, [`rodio`] for
-/// audio, and [`fastrand`] for randomness.
+/// A frontend that uses [`pixels`] for rendering, [`winit`] for window managemenet and input, and
+/// [`rodio`] for audio.
 #[derive(Debug)]
 pub struct PixelsFrontend {
     chip8: Chip8,
+    layout: Layout,
+    keys: Keys,
     event_loop: Option<EventLoop<()>>,
     window: Window,
     pixels: Pixels,
@@ -35,7 +38,7 @@ pub struct PixelsFrontend {
 
 impl PixelsFrontend {
     /// Constructs a new [`pixels`] frontend using the provided emulator instance and ROM name.
-    fn new(chip8: Chip8, rom: &str) -> Result<Self, PixelsError> {
+    fn new(chip8: Chip8, rom: &str, layout: Layout) -> Result<Self, PixelsError> {
         let event_loop = EventLoop::new();
         let window = {
             let size = PhysicalSize::new(WIDTH, HEIGHT);
@@ -52,6 +55,8 @@ impl PixelsFrontend {
 
         Ok(Self {
             chip8,
+            layout,
+            keys: Keys::new(),
             event_loop: Some(event_loop),
             window,
             pixels,
@@ -109,7 +114,67 @@ impl PixelsFrontend {
     }
 
     /// Handles keyboard input.
-    fn input_handler(&mut self, input: KeyboardInput) {}
+    fn input_handler(&mut self, input: KeyboardInput) {
+        let Some(keycode) = input.virtual_keycode else {
+            return;
+        };
+        let Some(key) = (match self.layout {
+            Layout::Qwerty => Self::qwerty_keycode_to_key(keycode),
+            Layout::Colemak => Self::colemak_keycode_to_key(keycode),
+        }) else {
+            return;
+        };
+        match input.state {
+            ElementState::Pressed => self.keys.press_key(key),
+            ElementState::Released => self.keys.release_key(key),
+        }
+    }
+
+    /// Converts [`winit`]'s [`VirtualKeyCode`] to a numeric CHIP-8 key using QWERTY.
+    fn qwerty_keycode_to_key(keycode: VirtualKeyCode) -> Option<usize> {
+        Some(match keycode {
+            VirtualKeyCode::Key1 => 0x1,
+            VirtualKeyCode::Key2 => 0x2,
+            VirtualKeyCode::Key3 => 0x3,
+            VirtualKeyCode::Key4 => 0xC,
+            VirtualKeyCode::Q => 0x4,
+            VirtualKeyCode::W => 0x5,
+            VirtualKeyCode::E => 0x6,
+            VirtualKeyCode::R => 0xD,
+            VirtualKeyCode::A => 0x7,
+            VirtualKeyCode::S => 0x8,
+            VirtualKeyCode::D => 0x9,
+            VirtualKeyCode::F => 0xE,
+            VirtualKeyCode::Z => 0xA,
+            VirtualKeyCode::X => 0x0,
+            VirtualKeyCode::C => 0xB,
+            VirtualKeyCode::V => 0xF,
+            _ => return None,
+        })
+    }
+
+    /// Converts [`winit`]'s [`VirtualKeyCode`] to a numeric CHIP-8 key using Colemak.
+    fn colemak_keycode_to_key(keycode: VirtualKeyCode) -> Option<usize> {
+        Some(match keycode {
+            VirtualKeyCode::Key1 => 0x1,
+            VirtualKeyCode::Key2 => 0x2,
+            VirtualKeyCode::Key3 => 0x3,
+            VirtualKeyCode::Key4 => 0xC,
+            VirtualKeyCode::Q => 0x4,
+            VirtualKeyCode::W => 0x5,
+            VirtualKeyCode::F => 0x6,
+            VirtualKeyCode::P => 0xD,
+            VirtualKeyCode::A => 0x7,
+            VirtualKeyCode::R => 0x8,
+            VirtualKeyCode::S => 0x9,
+            VirtualKeyCode::T => 0xE,
+            VirtualKeyCode::Z => 0xA,
+            VirtualKeyCode::X => 0x0,
+            VirtualKeyCode::C => 0xB,
+            VirtualKeyCode::V => 0xF,
+            _ => return None,
+        })
+    }
 
     /// Updates the emulator and gets the frontend to act accordingly.
     fn instruction_cycle(&mut self, control_flow: &mut ControlFlow) {
@@ -153,9 +218,10 @@ fn main() {
         process::exit(1)
     });
 
-    let frontend = PixelsFrontend::new(chip8, &args.path.to_string_lossy()).unwrap_or_else(|err| {
-        eprintln!("Error while setting up pixels frontend: {}", err);
-        process::exit(1)
-    });
+    let frontend = PixelsFrontend::new(chip8, &args.path.to_string_lossy(), args.layout)
+        .unwrap_or_else(|err| {
+            eprintln!("Error while setting up pixels frontend: {}", err);
+            process::exit(1)
+        });
     frontend.main_loop();
 }

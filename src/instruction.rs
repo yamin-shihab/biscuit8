@@ -1,6 +1,6 @@
 //! Provides a way for CHIP-8's 16-bit instructions to be represented (the [`Instruction`] struct).
 
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::{Display, Error, Formatter};
 
 /// Used to represent an instruction (opcode and values).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -51,7 +51,7 @@ impl Instruction {
 }
 
 impl Display for Instruction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:#06X}", self.raw)
     }
 }
