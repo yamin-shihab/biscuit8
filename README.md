@@ -1,10 +1,6 @@
-<div align=center>
-
 # biscuit8
 
 *A modular CHIP-8 emulator library written in Rust with multiple implemented frontends included*
-
-</div>
 
 ---
 
