@@ -10,11 +10,17 @@ use std::{fs, io::Error, path::PathBuf};
 use thiserror::Error;
 
 /// A CHIP-8 emulator with support for multiple frontends and options.
-#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, FromArgs)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, FromArgs)]
 pub struct Args {
     /// the keyboard layout to use (QWERTY and Colemak supported)
     #[argh(option, short = 'l', default = "Layout::default()")]
     pub layout: Layout,
+    /// the background color in 0xRRGGBB hex
+    #[argh(option, default = "0x000000")]
+    pub bg: u32,
+    /// the foreground color in 0xRRGGBB hex
+    #[argh(option, default = "0xFFFFFF")]
+    pub fg: u32,
     /// path of the ROM to execute
     #[argh(positional)]
     pub path: PathBuf,

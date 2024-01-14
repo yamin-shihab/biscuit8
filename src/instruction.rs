@@ -3,7 +3,7 @@
 use std::fmt::{Display, Error, Formatter};
 
 /// Used to represent an instruction (opcode and values).
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Instruction {
     raw: u16,
 }
@@ -41,7 +41,7 @@ impl Instruction {
 
     /// Returns the last 8 bits (a constant).
     pub fn nn(&self) -> u8 {
-        self.raw.to_be_bytes()[1]
+        (self.raw & 0x00FF) as u8
     }
 
     /// Returns the last 12 bits (a memory address).

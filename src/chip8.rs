@@ -1,7 +1,7 @@
-//! This module provides the logic of the emulator itself, primarily through the [`Chip8`] struct.
-//! The error type [`Chip8Error`] is also provided.
+//! Provides the logic of the emulator itself, primarily through the [`Chip8`]
+//! struct. The error type [`Chip8Error`] is also provided.
 
-use crate::instruction::Instruction;
+use crate::{input::Keys, instruction::Instruction, output::Screen};
 use thiserror::Error;
 
 /// How many bytes to allocate for the emulator's RAM.
@@ -10,8 +10,8 @@ const RAM_SIZE: usize = 0x1000;
 /// Where to put the ROM in the emulator's RAM.
 const ROM_LOC: usize = 0x200;
 
-/// The sprites for every hexadecimal digit as a font (stored at the beginning of the emulator's
-/// RAM).
+/// The sprites for every hexadecimal digit as a font (stored at the beginning
+/// of the emulator's RAM).
 const FONT_SPRITES: [u8; 0x50] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -42,6 +42,8 @@ pub struct Chip8 {
     st: u8,
     stack: Vec<usize>,
     instruction: Instruction,
+    keys: Keys,
+    screen: Screen,
 }
 
 impl Chip8 {
@@ -64,37 +66,48 @@ impl Chip8 {
             st: 0,
             stack: Vec::new(),
             instruction: Instruction::new(0),
+            keys: Keys::new(),
+            screen: Screen::new(),
         })
     }
 
-    /// Performs one iteration of the fetch-decode-execute cycle and returns an error if there
-    /// isn't another [`Instruction`] to be decoded and executed or the opcode of the current
+    /// Performs one iteration of the fetch-decode-execute cycle and returns the
+    /// screen if it was updated. An error is returned if there isn't another
+    /// [`Instruction`] to be decoded and executed or the opcode of the current
     /// [`Instruction`] is unknown.
-    pub fn instruction_cycle(&mut self) -> Result<(), Chip8Error> {
+    pub fn instruction_cycle(&mut self, keys: Keys) -> Result<Option<Screen>, Chip8Error> {
         let Some(instruction) = self.fetch_instruction() else {
             return Err(Chip8Error::NoMoreInstructions);
         };
+        self.keys = keys;
         self.instruction = instruction;
         self.pc += 2;
-        self.decode_execute()?;
-        Ok(())
+        if self.decode_execute()? {
+            return Ok(Some(self.screen.clone()));
+        }
+        Ok(None)
     }
 
-    /// Fetches the current [`Instruction`] from the program counter (if there still is one).
+    /// Fetches the current [`Instruction`] from the program counter (if there still
+    /// is one).
     fn fetch_instruction(&self) -> Option<Instruction> {
         let first = self.ram.get(self.pc)?;
         let second = self.ram.get(self.pc + 1)?;
         Some(Instruction::new(u16::from_be_bytes([*first, *second])))
     }
 
-    /// Decodes the current [`Instruction`] and executes the appropriate method. An error is
-    /// returned when the instruction opcode is unknown.
-    fn decode_execute(&mut self) -> Result<(), Chip8Error> {
+    /// Decodes the current [`Instruction`] and executes the appropriate method. An
+    /// error is returned when the instruction opcode is unknown, and a bool for
+    /// whether the screen was updated.
+    fn decode_execute(&mut self) -> Result<bool, Chip8Error> {
         match self.instruction.nibbles() {
             (0, 0, 0, 0) => (),
-            (0x0, 0x0, 0xE, 0x0) => self.clr_screen(),
-            (0x0, 0x0, 0xE, 0xE) => self.ret_subroutine(),
-            (0x1, _, _, _) => self.jp_addr(),
+            (0x0, 0x0, 0xE, 0x0) => {
+                self.clear_screen();
+                return Ok(true);
+            }
+            (0x0, 0x0, 0xE, 0xE) => self.subroutine_return(),
+            (0x1, _, _, _) => self.jump_addr(),
             (0x2, _, _, _) => self.call_subroutine(),
             (0x3, _, _, _) => self.skip_eq_byte(),
             (0x4, _, _, _) => self.skip_not_byte(),
@@ -107,32 +120,35 @@ impl Chip8 {
             (0x8, _, _, 0x3) => self.xor_reg(),
             (0x8, _, _, 0x4) => self.add_reg(),
             (0x8, _, _, 0x5) => self.sub_reg(),
-            (0x8, _, _, 0x6) => self.right_shift(),
+            (0x8, _, _, 0x6) => self.shr_reg(),
             (0x8, _, _, 0x7) => self.rev_sub_reg(),
-            (0x8, _, _, 0xE) => self.left_shift(),
+            (0x8, _, _, 0xE) => self.shl_reg(),
             (0x9, _, _, 0x0) => self.skip_not_reg(),
-            (0xA, _, _, _) => self.set_idx_addr(),
-            (0xB, _, _, _) => self.jp_add_addr(),
+            (0xA, _, _, _) => self.set_index_addr(),
+            (0xB, _, _, _) => self.jump_add_addr(),
             (0xC, _, _, _) => self.rand_and_byte(),
-            (0xD, _, _, _) => self.drw_sprite(),
+            (0xD, _, _, _) => {
+                self.draw_sprite();
+                return Ok(true);
+            }
             (0xE, _, 0x9, 0xE) => self.skip_eq_key(),
             (0xE, _, 0xA, 0x1) => self.skip_not_key(),
             (0xF, _, 0x0, 0x7) => self.set_reg_delay(),
             (0xF, _, 0x0, 0xA) => self.set_reg_key(),
             (0xF, _, 0x1, 0x5) => self.set_delay_reg(),
             (0xF, _, 0x1, 0x8) => self.set_sound_reg(),
-            (0xF, _, 0x1, 0xE) => self.add_idx_reg(),
-            (0xF, _, 0x2, 0x9) => self.set_idx_char(),
-            (0xF, _, 0x3, 0x3) => self.set_idx_bcd(),
-            (0xF, _, 0x5, 0x5) => self.set_idx_reg(),
-            (0xF, _, 0x6, 0x5) => self.set_reg_idx(),
+            (0xF, _, 0x1, 0xE) => self.add_index_reg(),
+            (0xF, _, 0x2, 0x9) => self.set_index_char(),
+            (0xF, _, 0x3, 0x3) => self.set_index_bcd(),
+            (0xF, _, 0x5, 0x5) => self.set_index_reg(),
+            (0xF, _, 0x6, 0x5) => self.set_reg_index(),
             _ => return Err(Chip8Error::UnknownInstruction(self.instruction)),
         }
-        Ok(())
+        Ok(false)
     }
 
     /// Clears the screen.
-    fn clr_screen(&mut self) {
+    fn clear_screen(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
@@ -140,7 +156,7 @@ impl Chip8 {
     }
 
     /// Returns from the current subroutine using the stack.
-    fn ret_subroutine(&mut self) {
+    fn subroutine_return(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
@@ -148,7 +164,7 @@ impl Chip8 {
     }
 
     /// Jumps to the given address.
-    fn jp_addr(&mut self) {
+    fn jump_addr(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
@@ -235,7 +251,8 @@ impl Chip8 {
         );
     }
 
-    /// Adds the register to the register and sets the flag register in the case of a carry.
+    /// Adds the register to the register and sets the flag register in the case of
+    /// a carry.
     fn add_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -243,7 +260,8 @@ impl Chip8 {
         );
     }
 
-    /// Subtracts the register from the register and sets the flag register in the case of a borrow.
+    /// Subtracts the register from the register and sets the flag register in the
+    /// case of a borrow.
     fn sub_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -251,16 +269,17 @@ impl Chip8 {
         );
     }
 
-    /// Sets the flag register to the least significant bit and right shifts the register by one.
-    fn right_shift(&mut self) {
+    /// Sets the flag register to the least significant bit and right shifts the
+    /// register by one.
+    fn shr_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Sets the register to the register minus it and sets the flag register in the case of a
-    /// borrow.
+    /// Sets the register to the register minus it and sets the flag register in the
+    /// case of a borrow.
     fn rev_sub_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -268,16 +287,17 @@ impl Chip8 {
         );
     }
 
-    /// Sets the flag register to the most significant bit and left shifts the register by one.
-    fn left_shift(&mut self) {
+    /// Sets the flag register to the most significant bit and left shifts the
+    /// register by one.
+    fn shl_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Skips the next instruction if the register isn't equal to the register by incrementing the
-    /// pogram counter.
+    /// Skips the next instruction if the register isn't equal to the register by
+    /// incrementing the pogram counter.
     fn skip_not_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -286,7 +306,7 @@ impl Chip8 {
     }
 
     /// Sets the index register to the address.
-    fn set_idx_addr(&mut self) {
+    fn set_index_addr(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
@@ -294,14 +314,15 @@ impl Chip8 {
     }
 
     /// Sets the program counter to the address plus the first register.
-    fn jp_add_addr(&mut self) {
+    fn jump_add_addr(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Sets the register to the result of a bitwise AND operation on a random number and the byte.
+    /// Sets the register to the result of a bitwise AND operation on a random
+    /// number and the byte.
     fn rand_and_byte(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -309,17 +330,18 @@ impl Chip8 {
         );
     }
 
-    /// Draws the sprite located in the index register onto the screen, and the flag register is set
-    /// if a pixel collision occurs; the location of the sprite is represented using the registers,
-    /// and height is defined by the nibble.
-    fn drw_sprite(&mut self) {
+    /// Draws the sprite located in the index register onto the screen, and the flag
+    /// register is set if a pixel collision occurs; the location of the sprite is
+    /// represented using the registers, and height is defined by the nibble.
+    fn draw_sprite(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Skips the next instruction if the key represented in the register is pressed.
+    /// Skips the next instruction if the key represented in the register is
+    /// pressed.
     fn skip_eq_key(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -327,7 +349,8 @@ impl Chip8 {
         );
     }
 
-    /// Skips the next instruction if the key represented in the register isn't pressed.
+    /// Skips the next instruction if the key represented in the register isn't
+    /// pressed.
     fn skip_not_key(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
@@ -368,7 +391,7 @@ impl Chip8 {
     }
 
     /// Adds the register to the index register.
-    fn add_idx_reg(&mut self) {
+    fn add_index_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
@@ -376,44 +399,39 @@ impl Chip8 {
     }
 
     /// Sets the index register to the font character represented by the register.
-    fn set_idx_char(&mut self) {
+    fn set_index_char(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Sets the location in RAM represented by the index register to the binary-coded decimal
-    /// representation of the register (hundreds, tens, and ones all in decimal).
-    fn set_idx_bcd(&mut self) {
+    /// Sets the location in RAM represented by the index register to the
+    /// binary-coded decimal representation of the register (hundreds, tens, and
+    /// ones all in decimal).
+    fn set_index_bcd(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Sets the location in RAM represented by the index register to the range of registers from
-    /// the first to the register.
-    fn set_idx_reg(&mut self) {
+    /// Sets the location in RAM represented by the index register to the range of
+    /// registers from the first to the register.
+    fn set_index_reg(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
     }
 
-    /// Sets the range of registers from the first to the register to the location in RAM
-    /// represented by the index register.
-    fn set_reg_idx(&mut self) {
+    /// Sets the range of registers from the first to the register to the location
+    /// in RAM represented by the index register.
+    fn set_reg_index(&mut self) {
         todo!(
             "Still have to implement the {} instruction.",
             self.instruction
         );
-    }
-}
-
-impl Default for Chip8 {
-    fn default() -> Self {
-        Self::new(&[]).expect("Empty ROM should've fit in the emulator's RAM.")
     }
 }
 

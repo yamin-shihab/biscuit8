@@ -1,4 +1,5 @@
-//! This module provides intermediary constructs for input between a frontend and the backend.
+//! Provides intermediary constructs for input between a frontend and the
+//! backend.
 
 use std::{
     fmt::{Display, Error, Formatter},
@@ -36,7 +37,7 @@ impl FromStr for Layout {
 }
 
 /// Used when a given keyboard layout is unknown.
-#[derive(Clone, Copy, Debug, Eq, Error, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Error, Hash, Ord, PartialEq, PartialOrd)]
 #[error("Keyboard layout is unknown (QWERTY and Colemak supported).")]
 pub struct ParseLayoutError;
 
