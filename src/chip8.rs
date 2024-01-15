@@ -33,7 +33,7 @@ const FONT_SPRITES: [u8; 0x50] = [
 ];
 
 /// Used to represent the emulator.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Chip8 {
     ram: [u8; RAM_SIZE],
     v: [u8; 0x10],
@@ -200,7 +200,8 @@ impl Chip8 {
 
     /// Adds the byte to the register.
     fn add_byte(&mut self) {
-        self.v[self.instruction.x()] += self.instruction.nn();
+        let x = self.instruction.x();
+        self.v[x] = self.v[x].wrapping_add(self.instruction.nn());
     }
 
     /// Sets the register to the register.
@@ -371,46 +372,36 @@ impl Chip8 {
 
     /// Adds the register to the index register.
     fn add_index_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.i += self.v[self.instruction.x()] as usize;
     }
 
     /// Sets the index register to the font character represented by the register.
     fn set_index_char(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.i = 5 * self.instruction.x();
     }
 
     /// Sets the location in RAM represented by the index register to the
     /// binary-coded decimal representation of the register (hundreds, tens, and
     /// ones all in decimal).
     fn set_index_bcd(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x() as u8;
+        self.ram[self.i] = x % 10;
+        self.ram[self.i + 1] = x / 10 % 10;
+        self.ram[self.i + 2] = x / 100 % 10;
     }
 
     /// Sets the location in RAM represented by the index register to the range of
     /// registers from the first to the register.
     fn set_index_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        self.ram[self.i..=x].copy_from_slice(&self.v[0..=x]);
     }
 
     /// Sets the range of registers from the first to the register to the location
     /// in RAM represented by the index register.
     fn set_reg_index(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        self.v[0..=x].copy_from_slice(&self.ram[self.i..=x]);
     }
 }
 

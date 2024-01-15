@@ -15,7 +15,7 @@ pub struct Screen {
 
 impl Screen {
     /// Initializes a new screen.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             raw: [false; WIDTH * HEIGHT],
         }
@@ -49,11 +49,11 @@ impl Screen {
 
     /// Clears the screen.
     pub fn clear(&mut self) {
-        self.raw.fill(false)
+        self.raw.fill(false);
     }
 
     /// Returns true if the provided position has a pixel, and false otherwise.
-    pub fn pixel(&self, x: usize, y: usize) -> bool {
+    pub const fn pixel(&self, x: usize, y: usize) -> bool {
         self.raw[y * WIDTH + x]
     }
 }

@@ -9,7 +9,7 @@ pub struct Keys {
 
 impl Keys {
     /// Constructs a new set of keys.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { raw: 0 }
     }
 
@@ -24,7 +24,7 @@ impl Keys {
     }
 
     /// Returns whether the specified key is currently being pressed or not.
-    pub fn key_pressed(&self, key: usize) -> bool {
+    pub const fn key_pressed(&self, key: usize) -> bool {
         (self.raw & (1 << key)) != 0
     }
 }
