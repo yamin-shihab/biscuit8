@@ -155,10 +155,7 @@ impl Chip8 {
 
     /// Returns from the current subroutine using the stack.
     fn subroutine_return(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.pc = self.stack.pop().expect("Stack should've had something to pop.");
     }
 
     /// Jumps to the given address.
@@ -168,10 +165,8 @@ impl Chip8 {
 
     /// Calls a subroutine using the stack.
     fn call_subroutine(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.stack.push(self.pc);
+        self.pc = self.instruction.nnn();
     }
 
     /// Skips the next instruction if the register is equal to the byte.
