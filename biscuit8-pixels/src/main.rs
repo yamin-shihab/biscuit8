@@ -1,47 +1,52 @@
-//! A [`biscuit8`] frontend using [`pixels`] for rendering, [`winit`] for window managemenet and
-//! input, and [`rodio`] for audio, primarily provided by [`PixelsFrontend`]. Errors are also
-//! represented by [`PixelsError`].
+//! A [`biscuit8`] frontend using [`pixels`] for rendering, [`winit`] for window
+//! management and input, and [`rodio`] for audio, primarily provided by
+//! [`PixelsFrontend`]. Errors are also represented by [`PixelsFrontendError`].
 
 use biscuit8::{
+    args::{self, Args, ArgsError, Layout},
     chip8::{Chip8, Chip8Error},
-    cli::Args,
-    input::{Keys, Layout},
+    keys::Keys,
+    screen::{self, Screen},
 };
-use pixels::{Error, Pixels, SurfaceTexture, TextureError};
-use std::process;
+use pixels::{wgpu::Color, Error, Pixels, PixelsBuilder, SurfaceTexture, TextureError};
+use std::process::ExitCode;
 use thiserror::Error;
 use winit::{
     dpi::PhysicalSize,
-    error::OsError,
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    error::{EventLoopError, OsError},
+    event::{Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    keyboard::Key,
     window::{Window, WindowBuilder},
 };
 
-/// The width of the screen.
-const WIDTH: u32 = 64;
-
-/// The height of the screen.
-const HEIGHT: u32 = 32;
-
-/// A frontend that uses [`pixels`] for rendering, [`winit`] for window managemenet and input, and
-/// [`rodio`] for audio.
+/// A frontend that uses [`pixels`] for rendering, [`winit`] for window
+/// managemenet and input, and [`rodio`] for audio.
 #[derive(Debug)]
 pub struct PixelsFrontend {
     chip8: Chip8,
-    layout: Layout,
     keys: Keys,
+    layout: Layout,
+    bg: [u8; 3],
+    fg: [u8; 3],
     event_loop: Option<EventLoop<()>>,
     window: Window,
     pixels: Pixels,
 }
 
 impl PixelsFrontend {
-    /// Constructs a new [`pixels`] frontend using the provided emulator instance and ROM name.
-    fn new(chip8: Chip8, rom: &str, layout: Layout) -> Result<Self, PixelsError> {
-        let event_loop = EventLoop::new();
+    /// Constructs a new [`pixels`] frontend using the provided emulator instance,
+    /// keyboard layout, colors, and ROM name.
+    pub fn new(
+        chip8: Chip8,
+        layout: Layout,
+        bg: [u8; 3],
+        fg: [u8; 3],
+        rom: &str,
+    ) -> Result<Self, PixelsFrontendError> {
+        let event_loop = EventLoop::new()?;
         let window = {
-            let size = PhysicalSize::new(WIDTH, HEIGHT);
+            let size = PhysicalSize::new(screen::WIDTH as u32, screen::HEIGHT as u32);
             WindowBuilder::new()
                 .with_title(format!("{} - biscuit8-pixels", rom))
                 .with_min_inner_size(size)
@@ -50,11 +55,21 @@ impl PixelsFrontend {
         let pixels = {
             let size = window.inner_size();
             let surface_texture = SurfaceTexture::new(size.width, size.height, &window);
-            Pixels::new(WIDTH, HEIGHT, surface_texture)?
+            let clear_color = Color {
+                r: (fg[0] as f64) / 255.0,
+                g: (fg[1] as f64) / 255.0,
+                b: (fg[2] as f64) / 255.0,
+                a: 1.0,
+            };
+            PixelsBuilder::new(screen::WIDTH as u32, screen::HEIGHT as u32, surface_texture)
+                .clear_color(clear_color)
+                .build()?
         };
 
         Ok(Self {
             chip8,
+            fg,
+            bg,
             layout,
             keys: Keys::new(),
             event_loop: Some(event_loop),
@@ -64,164 +79,177 @@ impl PixelsFrontend {
     }
 
     /// The main loop managed by [`winit`]; almost everything happens here.
-    fn main_loop(mut self) {
-        // The event loop is an option so that methods can be called from within the move closure.
+    pub fn main_loop(mut self) -> Result<(), PixelsFrontendError> {
         let event_loop = self
             .event_loop
             .take()
             .expect("Event loop should've been initialized.");
-
-        event_loop.run(move |event, _, control_flow| {
-            control_flow.set_poll();
-            if let Err(err) = self.event_handler(event, control_flow) {
-                eprintln!("Error while running pixels frontend: {}", err);
-                control_flow.set_exit_with_code(1);
+        event_loop.set_control_flow(ControlFlow::Poll);
+        event_loop.run(move |event, elwt| {
+            if let Err(err) = self.event_handler(event) {
+                eprintln!("{}", err);
+                elwt.exit();
             }
-        });
-    }
-
-    /// Handles [`winit`] events (window management, logic, rendering).
-    fn event_handler(
-        &mut self,
-        event: Event<()>,
-        control_flow: &mut ControlFlow,
-    ) -> Result<(), PixelsError> {
-        match event {
-            Event::WindowEvent { event, .. } => self.window_event_handler(event, control_flow)?,
-            Event::MainEventsCleared => self.instruction_cycle(control_flow),
-            Event::RedrawRequested(_) => self.pixels.render()?,
-            _ => (),
-        }
+        })?;
         Ok(())
     }
 
-    /// Handles [`winit`] window events (scale, window state, input).
-    fn window_event_handler(
-        &mut self,
-        event: WindowEvent,
-        control_flow: &mut ControlFlow,
-    ) -> Result<(), PixelsError> {
+    /// Handles [`winit`] events (window management, logic, rendering).
+    fn event_handler(&mut self, event: Event<()>) -> Result<(), PixelsFrontendError> {
         match event {
-            WindowEvent::CloseRequested => control_flow.set_exit(),
+            Event::WindowEvent { event, .. } => self.window_event_handler(event),
+            Event::AboutToWait => self.instruction_cycle(),
+            _ => Ok(()),
+        }
+    }
+
+    /// Handles [`winit`] window events (scale, window state, input).
+    fn window_event_handler(&mut self, event: WindowEvent) -> Result<(), PixelsFrontendError> {
+        match event {
             WindowEvent::Resized(size) => self.pixels.resize_surface(size.width, size.height)?,
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self
-                .pixels
-                .resize_surface(new_inner_size.width, new_inner_size.height)?,
-            WindowEvent::KeyboardInput { input, .. } => self.input_handler(input),
+            WindowEvent::CloseRequested => return Err(PixelsFrontendError::WindowClose),
+            WindowEvent::KeyboardInput { event, .. } => self.key_handler(event),
+            WindowEvent::ScaleFactorChanged { .. } => {
+                let size = self.window.inner_size();
+                self.pixels.resize_surface(size.width, size.height)?
+            }
+            WindowEvent::RedrawRequested => self.pixels.render()?,
             _ => (),
         }
         Ok(())
     }
 
     /// Handles keyboard input.
-    fn input_handler(&mut self, input: KeyboardInput) {
-        let Some(keycode) = input.virtual_keycode else {
+    fn key_handler(&mut self, key_event: KeyEvent) {
+        let Key::Character(character) = key_event.logical_key else {
             return;
         };
         let Some(key) = (match self.layout {
-            Layout::Qwerty => Self::qwerty_keycode_to_key(keycode),
-            Layout::Colemak => Self::colemak_keycode_to_key(keycode),
+            Layout::Qwerty => Self::qwerty_character_to_key(&character),
+            Layout::Colemak => Self::colemak_character_to_key(&character),
         }) else {
             return;
         };
-        match input.state {
-            ElementState::Pressed => self.keys.press_key(key),
-            ElementState::Released => self.keys.release_key(key),
+        if key_event.state.is_pressed() {
+            self.keys.press_key(key);
+        } else if key_event.repeat {
+            self.keys.release_key(key);
         }
     }
 
-    /// Converts [`winit`]'s [`VirtualKeyCode`] to a numeric CHIP-8 key using QWERTY.
-    fn qwerty_keycode_to_key(keycode: VirtualKeyCode) -> Option<usize> {
-        Some(match keycode {
-            VirtualKeyCode::Key1 => 0x1,
-            VirtualKeyCode::Key2 => 0x2,
-            VirtualKeyCode::Key3 => 0x3,
-            VirtualKeyCode::Key4 => 0xC,
-            VirtualKeyCode::Q => 0x4,
-            VirtualKeyCode::W => 0x5,
-            VirtualKeyCode::E => 0x6,
-            VirtualKeyCode::R => 0xD,
-            VirtualKeyCode::A => 0x7,
-            VirtualKeyCode::S => 0x8,
-            VirtualKeyCode::D => 0x9,
-            VirtualKeyCode::F => 0xE,
-            VirtualKeyCode::Z => 0xA,
-            VirtualKeyCode::X => 0x0,
-            VirtualKeyCode::C => 0xB,
-            VirtualKeyCode::V => 0xF,
+    /// Converts [`winit`]'s string character representation into a numeric
+    /// CHIP-8 key using QWERTY.
+    fn qwerty_character_to_key(character: &str) -> Option<usize> {
+        Some(match character {
+            "1" => 0x1,
+            "2" => 0x2,
+            "3" => 0x3,
+            "4" => 0xC,
+            "q" => 0x4,
+            "w" => 0x5,
+            "e" => 0x6,
+            "r" => 0xD,
+            "a" => 0x7,
+            "s" => 0x8,
+            "d" => 0x9,
+            "f" => 0xE,
+            "z" => 0xA,
+            "x" => 0x0,
+            "c" => 0xB,
+            "v" => 0xF,
             _ => return None,
         })
     }
 
-    /// Converts [`winit`]'s [`VirtualKeyCode`] to a numeric CHIP-8 key using Colemak.
-    fn colemak_keycode_to_key(keycode: VirtualKeyCode) -> Option<usize> {
-        Some(match keycode {
-            VirtualKeyCode::Key1 => 0x1,
-            VirtualKeyCode::Key2 => 0x2,
-            VirtualKeyCode::Key3 => 0x3,
-            VirtualKeyCode::Key4 => 0xC,
-            VirtualKeyCode::Q => 0x4,
-            VirtualKeyCode::W => 0x5,
-            VirtualKeyCode::F => 0x6,
-            VirtualKeyCode::P => 0xD,
-            VirtualKeyCode::A => 0x7,
-            VirtualKeyCode::R => 0x8,
-            VirtualKeyCode::S => 0x9,
-            VirtualKeyCode::T => 0xE,
-            VirtualKeyCode::Z => 0xA,
-            VirtualKeyCode::X => 0x0,
-            VirtualKeyCode::C => 0xB,
-            VirtualKeyCode::V => 0xF,
+    /// Converts [`winit`]'s string character representation into a numeric
+    /// CHIP-8 key using Colemak.
+    fn colemak_character_to_key(character: &str) -> Option<usize> {
+        Some(match character {
+            "1" => 0x1,
+            "2" => 0x2,
+            "3" => 0x3,
+            "4" => 0xC,
+            "q" => 0x4,
+            "w" => 0x5,
+            "f" => 0x6,
+            "p" => 0xD,
+            "a" => 0x7,
+            "r" => 0x8,
+            "s" => 0x9,
+            "t" => 0xE,
+            "z" => 0xA,
+            "x" => 0x0,
+            "c" => 0xB,
+            "v" => 0xF,
             _ => return None,
         })
     }
 
     /// Updates the emulator and gets the frontend to act accordingly.
-    fn instruction_cycle(&mut self, control_flow: &mut ControlFlow) {
-        let Err(err) = self.chip8.instruction_cycle() else {
-            return;
-        };
-        match err {
-            Chip8Error::NoMoreInstructions => {
-                println!("Successfully finished executing ROM.");
-                control_flow.set_exit();
-            }
-            Chip8Error::UnknownInstruction(instruction) => {
-                eprintln!("Unknown instruction opcode: {}.", instruction);
-            }
-            _ => (),
+    fn instruction_cycle(&mut self) -> Result<(), PixelsFrontendError> {
+        if let Some(screen) = self.chip8.instruction_cycle(self.keys)? {
+            self.draw_screen(screen);
         }
+        Ok(())
+    }
+
+    /// Draws the provided screen to the pixels buffer.
+    fn draw_screen(&mut self, screen: Screen) {
+        let frame = self.pixels.frame_mut();
+        for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
+            let x = i % screen::WIDTH;
+            let y = i / screen::WIDTH;
+            if screen.pixel(x, y) {
+                pixel[0..3].copy_from_slice(&self.fg);
+                pixel[3] = 255;
+            } else {
+                pixel[0..3].copy_from_slice(&self.bg);
+                pixel[3] = 255;
+            }
+        }
+        self.window.request_redraw();
     }
 }
 
-/// The ways this frontend can cause an error and fail.
 #[derive(Debug, Error)]
-pub enum PixelsError {
-    #[error("Pixels error: {0}")]
+pub enum PixelsFrontendError {
+    #[error("{0}")]
+    Args(#[from] ArgsError),
+    #[error("{0}")]
+    EventLoop(#[from] EventLoopError),
+    #[error("{0}")]
+    Os(#[from] OsError),
+    #[error("{0}")]
     Pixels(#[from] Error),
-    #[error("Texture error: {0}.")]
+    #[error("Window close requested.")]
+    WindowClose,
+    #[error("{0}")]
     Texture(#[from] TextureError),
-    #[error("Winit OS error: {0}.")]
-    WinitOs(#[from] OsError),
+    #[error("{0}")]
+    Chip8(#[from] Chip8Error),
 }
 
-/// Gets the ROM from the given path, creates an emulator using the chosen frontend, and starts the
-/// main instruction loop with some options/settings.
-fn main() {
-    let args = argh::from_env::<Args>();
-    let chip8 = args.chip8().unwrap_or_else(|err| {
-        eprintln!(
-            "Error while setting up CHIP-8 emulator with ROM file \"{}\": {}",
-            args.path.to_string_lossy(),
-            err
-        );
-        process::exit(1)
-    });
+/// Same old "exciting" entry point.
+fn main() -> ExitCode {
+    if let Err(err) = main_loop() {
+        eprintln!("{}", err);
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
+}
 
-    let frontend = PixelsFrontend::new(chip8, &args.path.to_string_lossy(), args.layout)
-        .unwrap_or_else(|err| {
-            eprintln!("Error while setting up pixels frontend: {}", err);
-            process::exit(1)
-        });
-    frontend.main_loop();
+/// Gets the ROM from the given path and starts the main instruction loop with
+/// some options/settings.
+fn main_loop() -> Result<(), PixelsFrontendError> {
+    let args = argh::from_env::<Args>();
+    let chip8 = args.chip8()?;
+    let frontend = PixelsFrontend::new(
+        chip8,
+        args.layout,
+        args::hex_to_rgb(args.bg)?,
+        args::hex_to_rgb(args.fg)?,
+        &args.path.to_string_lossy(),
+    )?;
+    frontend.main_loop()?;
+    Ok(())
 }
