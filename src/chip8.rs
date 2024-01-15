@@ -2,6 +2,7 @@
 //! struct. The error type [`Chip8Error`] is also provided.
 
 use crate::{instruction::Instruction, keys::Keys, screen::Screen};
+use fastrand::Rng;
 use thiserror::Error;
 
 /// How many bytes to allocate for the emulator's RAM.
@@ -44,6 +45,7 @@ pub struct Chip8 {
     instruction: Instruction,
     keys: Keys,
     screen: Screen,
+    rng: Rng,
 }
 
 impl Chip8 {
@@ -69,6 +71,7 @@ impl Chip8 {
             instruction: Instruction::new(0),
             keys: Keys::new(),
             screen: Screen::new(),
+            rng: Rng::new(),
         })
     }
 
@@ -301,10 +304,7 @@ impl Chip8 {
     /// Sets the register to the result of a bitwise AND operation on a random
     /// number and the byte.
     fn rand_and_byte(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] = self.rng.u8(0..255) & self.instruction.nn();
     }
 
     /// Draws the sprite located in the index register onto the screen, and the flag
