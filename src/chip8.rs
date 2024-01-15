@@ -150,10 +150,7 @@ impl Chip8 {
 
     /// Clears the screen.
     fn clear_screen(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.screen.clear();
     }
 
     /// Returns from the current subroutine using the stack.
@@ -166,10 +163,7 @@ impl Chip8 {
 
     /// Jumps to the given address.
     fn jump_addr(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.pc = self.instruction.nnn();
     }
 
     /// Calls a subroutine using the stack.
@@ -206,18 +200,12 @@ impl Chip8 {
 
     /// Sets the register to the byte
     fn set_reg_byte(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] = self.instruction.nn();
     }
 
     /// Adds the byte to the register.
     fn add_byte(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] += self.instruction.nn();
     }
 
     /// Sets the register to the register.
@@ -308,10 +296,7 @@ impl Chip8 {
 
     /// Sets the index register to the address.
     fn set_index_addr(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.i = self.instruction.nnn();
     }
 
     /// Sets the program counter to the address plus the first register.
@@ -335,10 +320,12 @@ impl Chip8 {
     /// register is set if a pixel collision occurs; the location of the sprite is
     /// represented using the registers, and height is defined by the nibble.
     fn draw_sprite(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let sprite = &self.ram[self.i..self.i + self.instruction.n()];
+        let x = self.v[self.instruction.x()] as usize;
+        let y = self.v[self.instruction.y()] as usize;
+        if self.screen.draw_sprite(sprite, x, y) {
+            self.v[15] = 1;
+        }
     }
 
     /// Skips the next instruction if the key represented in the register is
