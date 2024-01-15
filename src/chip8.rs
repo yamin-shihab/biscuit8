@@ -171,26 +171,23 @@ impl Chip8 {
 
     /// Skips the next instruction if the register is equal to the byte.
     fn skip_eq_byte(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if self.v[self.instruction.x()] == self.instruction.nn() {
+            self.pc += 2;
+        }
     }
 
     /// Skips the next instruction if the register isn't equal to the byte.
     fn skip_not_byte(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if self.v[self.instruction.x()] != self.instruction.nn() {
+            self.pc += 2;
+        }
     }
 
     /// Skips the next instruction if the register is equal to the register.
     fn skip_eq_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if self.v[self.instruction.x()] == self.v[self.instruction.y()] {
+            self.pc += 2;
+        }
     }
 
     /// Sets the register to the byte
@@ -283,10 +280,9 @@ impl Chip8 {
     /// Skips the next instruction if the register isn't equal to the register by
     /// incrementing the pogram counter.
     fn skip_not_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if self.v[self.instruction.x()] != self.v[self.instruction.y()] {
+            self.pc += 2;
+        }
     }
 
     /// Sets the index register to the address.
