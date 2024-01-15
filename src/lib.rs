@@ -6,8 +6,8 @@
 //! are provided to assist with bridging the gap. This project also implements
 //! some frontends itself too.
 
+pub mod args;
 pub mod chip8;
-pub mod cli;
-pub mod input;
 pub mod instruction;
-pub mod output;
+pub mod keys;
+pub mod screen;

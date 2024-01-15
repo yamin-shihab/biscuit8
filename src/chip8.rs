@@ -1,7 +1,7 @@
 //! Provides the logic of the emulator itself, primarily through the [`Chip8`]
 //! struct. The error type [`Chip8Error`] is also provided.
 
-use crate::{input::Keys, instruction::Instruction, output::Screen};
+use crate::{instruction::Instruction, keys::Keys, screen::Screen};
 use thiserror::Error;
 
 /// How many bytes to allocate for the emulator's RAM.
@@ -50,7 +50,8 @@ impl Chip8 {
     /// Create an emulator from the given ROM.
     pub fn new(rom: &[u8]) -> Result<Self, Chip8Error> {
         if rom.len() > RAM_SIZE - ROM_LOC {
-            return Err(Chip8Error::RomTooBig);
+            let exceed = rom.len() - RAM_SIZE - ROM_LOC;
+            return Err(Chip8Error::RomTooBig(exceed));
         }
 
         let mut ram = [0; RAM_SIZE];
@@ -142,7 +143,7 @@ impl Chip8 {
             (0xF, _, 0x3, 0x3) => self.set_index_bcd(),
             (0xF, _, 0x5, 0x5) => self.set_index_reg(),
             (0xF, _, 0x6, 0x5) => self.set_reg_index(),
-            _ => return Err(Chip8Error::UnknownInstruction(self.instruction)),
+            _ => return Err(Chip8Error::UnknownInstruction(self.instruction, self.pc)),
         }
         Ok(false)
     }
@@ -438,10 +439,10 @@ impl Chip8 {
 /// Used to describe possibble errors caused by the emulator
 #[derive(Clone, Copy, Debug, Eq, Error, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Chip8Error {
-    #[error("ROM size exceeds the amount of RAM provided by the CHIP-8 emulator.")]
-    RomTooBig,
-    #[error("Instruction opcode is unknown.")]
-    UnknownInstruction(Instruction),
+    #[error("ROM size exceeds the amount of RAM provided by the CHIP-8 emulator by {0} bytes.")]
+    RomTooBig(usize),
     #[error("There aren't any more instructions to run.")]
     NoMoreInstructions,
+    #[error("Instruction opcode {0} at {1} is unknown.")]
+    UnknownInstruction(Instruction, usize),
 }

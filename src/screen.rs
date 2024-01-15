@@ -36,7 +36,7 @@ impl Screen {
                     break;
                 }
                 let bit = (row & 1 << j) >> j;
-                let pos = y * WIDTH + x;
+                let pos = (y + i) * WIDTH + x + j;
                 let pixel = self.raw[pos];
                 self.raw[pos] ^= bit != 0;
                 if pixel && !self.raw[pos] {
