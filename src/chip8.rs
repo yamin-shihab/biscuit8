@@ -323,19 +323,17 @@ impl Chip8 {
     /// Skips the next instruction if the key represented in the register is
     /// pressed.
     fn skip_eq_key(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if self.keys.key_pressed(self.v[self.instruction.x()]) {
+            self.pc += 2;
+        }
     }
 
     /// Skips the next instruction if the key represented in the register isn't
     /// pressed.
     fn skip_not_key(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if !self.keys.key_pressed(self.v[self.instruction.x()]) {
+            self.pc += 2;
+        }
     }
 
     /// Sets the register to the delay timer.
@@ -346,12 +344,13 @@ impl Chip8 {
         );
     }
 
-    /// Waits until a key is pressed and released before setting the register to it.
+    /// Waits until a key is pressed before setting the register to it.
     fn set_reg_key(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        if let Some(key) = self.keys.last_pressed() {
+            self.v[self.instruction.x()] = key;
+        } else {
+            self.pc -= 2;
+        }
     }
 
     /// Sets the delay timer to the register.
@@ -394,14 +393,14 @@ impl Chip8 {
     /// registers from the first to the register.
     fn set_index_reg(&mut self) {
         let x = self.instruction.x();
-        self.ram[self.i..=x].copy_from_slice(&self.v[0..=x]);
+        self.ram[self.i..=self.i + x].copy_from_slice(&self.v[0..=x]);
     }
 
     /// Sets the range of registers from the first to the register to the location
     /// in RAM represented by the index register.
     fn set_reg_index(&mut self) {
         let x = self.instruction.x();
-        self.v[0..=x].copy_from_slice(&self.ram[self.i..=x]);
+        self.v[0..=x].copy_from_slice(&self.ram[self.i..=self.i + x]);
     }
 }
 

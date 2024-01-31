@@ -132,14 +132,14 @@ impl PixelsFrontend {
         };
         if key_event.state.is_pressed() {
             self.keys.press_key(key);
-        } else if key_event.repeat {
+        } else {
             self.keys.release_key(key);
         }
     }
 
     /// Converts [`winit`]'s string character representation into a numeric
     /// CHIP-8 key using QWERTY.
-    fn qwerty_character_to_key(character: &str) -> Option<usize> {
+    fn qwerty_character_to_key(character: &str) -> Option<u8> {
         Some(match character {
             "1" => 0x1,
             "2" => 0x2,
@@ -163,7 +163,7 @@ impl PixelsFrontend {
 
     /// Converts [`winit`]'s string character representation into a numeric
     /// CHIP-8 key using Colemak.
-    fn colemak_character_to_key(character: &str) -> Option<usize> {
+    fn colemak_character_to_key(character: &str) -> Option<u8> {
         Some(match character {
             "1" => 0x1,
             "2" => 0x2,
@@ -190,6 +190,7 @@ impl PixelsFrontend {
         if let Some(screen) = self.chip8.instruction_cycle(self.keys)? {
             self.draw_screen(screen);
         }
+        self.keys.reset_last_pressed();
         Ok(())
     }
 
