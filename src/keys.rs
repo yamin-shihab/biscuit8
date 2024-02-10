@@ -11,7 +11,10 @@ pub struct Keys {
 impl Keys {
     /// Constructs a new set of keys.
     pub const fn new() -> Self {
-        Self { raw: 0, last_pressed: None }
+        Self {
+            raw: 0,
+            last_pressed: None,
+        }
     }
 
     /// Presses the specified key.

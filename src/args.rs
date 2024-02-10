@@ -1,8 +1,8 @@
 //! CLI argument parsing is done here; you can use [`argh`] to get a struct
 //! containing things like the path to the ROM and other options/settings.
 
-use argh::FromArgs;
 use crate::chip8::{Chip8, Chip8Error};
+use argh::FromArgs;
 use std::{
     fmt::{Display, Error as FmtError, Formatter},
     fs,

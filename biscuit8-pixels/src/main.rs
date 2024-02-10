@@ -9,7 +9,11 @@ use biscuit8::{
     screen::{self, Screen},
 };
 use pixels::{wgpu::Color, Error, Pixels, PixelsBuilder, SurfaceTexture, TextureError};
-use std::process::ExitCode;
+use rodio::{source::SineWave, OutputStream, PlayError, Sink, Source, StreamError};
+use std::{
+    process::ExitCode,
+    time::{Duration, Instant},
+};
 use thiserror::Error;
 use winit::{
     dpi::PhysicalSize,
@@ -22,7 +26,6 @@ use winit::{
 
 /// A frontend that uses [`pixels`] for rendering, [`winit`] for window
 /// managemenet and input, and [`rodio`] for audio.
-#[derive(Debug)]
 pub struct PixelsFrontend {
     chip8: Chip8,
     keys: Keys,
@@ -32,6 +35,8 @@ pub struct PixelsFrontend {
     event_loop: Option<EventLoop<()>>,
     window: Window,
     pixels: Pixels,
+    sink: Sink,
+    _stream: OutputStream,
 }
 
 impl PixelsFrontend {
@@ -65,6 +70,8 @@ impl PixelsFrontend {
                 .clear_color(clear_color)
                 .build()?
         };
+        let (_stream, stream_handle) = OutputStream::try_default()?;
+        let sink = Sink::try_new(&stream_handle)?;
 
         Ok(Self {
             chip8,
@@ -75,6 +82,8 @@ impl PixelsFrontend {
             event_loop: Some(event_loop),
             window,
             pixels,
+            sink,
+            _stream,
         })
     }
 
@@ -84,8 +93,10 @@ impl PixelsFrontend {
             .event_loop
             .take()
             .expect("Event loop should've been initialized.");
-        event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run(move |event, elwt| {
+            elwt.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::new(0, 1666666),
+            ));
             if let Err(err) = self.event_handler(event) {
                 eprintln!("{}", err);
                 elwt.exit();
@@ -187,8 +198,12 @@ impl PixelsFrontend {
 
     /// Updates the emulator and gets the frontend to act accordingly.
     fn instruction_cycle(&mut self) -> Result<(), PixelsFrontendError> {
-        if let Some(screen) = self.chip8.instruction_cycle(self.keys)? {
+        let output = self.chip8.instruction_cycle(self.keys)?;
+        if let Some(screen) = output.0 {
             self.draw_screen(screen);
+        }
+        if output.1 {
+            self.beep();
         }
         self.keys.reset_last_pressed();
         Ok(())
@@ -210,6 +225,13 @@ impl PixelsFrontend {
         }
         self.window.request_redraw();
     }
+
+    /// Makes a beeping noise using [`rodio`].
+    fn beep(&self) {
+        let source = SineWave::new(700.0).take_duration(Duration::new(0, 100000000));
+        self.sink.stop();
+        self.sink.append(source);
+    }
 }
 
 #[derive(Debug, Error)]
@@ -222,12 +244,16 @@ pub enum PixelsFrontendError {
     Os(#[from] OsError),
     #[error("{0}")]
     Pixels(#[from] Error),
+    #[error("{0}")]
+    Stream(#[from] StreamError),
     #[error("Window close requested.")]
     WindowClose,
     #[error("{0}")]
     Texture(#[from] TextureError),
     #[error("{0}")]
     Chip8(#[from] Chip8Error),
+    #[error("{0}")]
+    PlayError(#[from] PlayError),
 }
 
 /// Same old "exciting" entry point.

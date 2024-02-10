@@ -3,6 +3,7 @@
 
 use crate::{instruction::Instruction, keys::Keys, screen::Screen};
 use fastrand::Rng;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 /// How many bytes to allocate for the emulator's RAM.
@@ -45,6 +46,7 @@ pub struct Chip8 {
     instruction: Instruction,
     keys: Keys,
     screen: Screen,
+    last_decrement: Instant,
     rng: Rng,
 }
 
@@ -71,15 +73,18 @@ impl Chip8 {
             instruction: Instruction::new(0),
             keys: Keys::new(),
             screen: Screen::new(),
+            last_decrement: Instant::now(),
             rng: Rng::new(),
         })
     }
 
     /// Performs one iteration of the fetch-decode-execute cycle and returns the
-    /// screen if it was updated. An error is returned if there isn't another
-    /// [`Instruction`] to be decoded and executed or the opcode of the current
-    /// [`Instruction`] is unknown.
-    pub fn instruction_cycle(&mut self, keys: Keys) -> Result<Option<Screen>, Chip8Error> {
+    /// screen as well as whether the frontend should beep or not, if it was
+    /// updated.An error is returned if there isn't another [`Instruction`] to be
+    /// decoded and executed or the opcode of the current [`Instruction`] is
+    /// unknown.
+    pub fn instruction_cycle(&mut self, keys: Keys) -> Result<(Option<Screen>, bool), Chip8Error> {
+        self.decrement_timers();
         let Some(instruction) = self.fetch_instruction() else {
             return Err(Chip8Error::NoMoreInstructions);
         };
@@ -87,9 +92,22 @@ impl Chip8 {
         self.instruction = instruction;
         self.pc += 2;
         if self.decode_execute()? {
-            return Ok(Some(self.screen.clone()));
+            return Ok((Some(self.screen.clone()), self.st > 0));
         }
-        Ok(None)
+        Ok((None, self.st > 0))
+    }
+
+    /// Decrements the delay and sound timers at a rate of 60 hertz.
+    fn decrement_timers(&mut self) {
+        if self.last_decrement.elapsed() >= Duration::new(0, 16666666) {
+            if self.dt != 0 {
+                self.dt -= 1;
+            }
+            if self.st != 0 {
+                self.st -= 1;
+            }
+            self.last_decrement = Instant::now();
+        }
     }
 
     /// Fetches the current [`Instruction`] from the program counter (if there still
@@ -158,7 +176,10 @@ impl Chip8 {
 
     /// Returns from the current subroutine using the stack.
     fn subroutine_return(&mut self) {
-        self.pc = self.stack.pop().expect("Stack should've had something to pop.");
+        self.pc = self
+            .stack
+            .pop()
+            .expect("Stack should've had something to pop.");
     }
 
     /// Jumps to the given address.
@@ -338,10 +359,7 @@ impl Chip8 {
 
     /// Sets the register to the delay timer.
     fn set_reg_delay(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] = self.dt;
     }
 
     /// Waits until a key is pressed before setting the register to it.
@@ -355,18 +373,12 @@ impl Chip8 {
 
     /// Sets the delay timer to the register.
     fn set_delay_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.dt = self.v[self.instruction.x()];
     }
 
     /// Sets the sound timer to the register.
     fn set_sound_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.st = self.v[self.instruction.x()];
     }
 
     /// Adds the register to the index register.
