@@ -9,11 +9,8 @@ use biscuit8::{
     screen::{self, Screen},
 };
 use pixels::{wgpu::Color, Error, Pixels, PixelsBuilder, SurfaceTexture, TextureError};
-use rodio::{source::SineWave, OutputStream, PlayError, Sink, Source, StreamError};
-use std::{
-    process::ExitCode,
-    time::{Duration, Instant},
-};
+use rodio::{source::SineWave, OutputStream, PlayError, Sink, StreamError};
+use std::process::ExitCode;
 use thiserror::Error;
 use winit::{
     dpi::PhysicalSize,
@@ -72,6 +69,9 @@ impl PixelsFrontend {
         };
         let (_stream, stream_handle) = OutputStream::try_default()?;
         let sink = Sink::try_new(&stream_handle)?;
+        let source = SineWave::new(700.0);
+        sink.append(source);
+        sink.pause();
 
         Ok(Self {
             chip8,
@@ -94,9 +94,7 @@ impl PixelsFrontend {
             .take()
             .expect("Event loop should've been initialized.");
         event_loop.run(move |event, elwt| {
-            elwt.set_control_flow(ControlFlow::WaitUntil(
-                Instant::now() + Duration::new(0, 1666666),
-            ));
+            elwt.set_control_flow(ControlFlow::Poll);
             if let Err(err) = self.event_handler(event) {
                 eprintln!("{}", err);
                 elwt.exit();
@@ -202,9 +200,7 @@ impl PixelsFrontend {
         if let Some(screen) = output.0 {
             self.draw_screen(screen);
         }
-        if output.1 {
-            self.beep();
-        }
+        self.beep(output.1);
         self.keys.reset_last_pressed();
         Ok(())
     }
@@ -227,10 +223,12 @@ impl PixelsFrontend {
     }
 
     /// Makes a beeping noise using [`rodio`].
-    fn beep(&self) {
-        let source = SineWave::new(700.0).take_duration(Duration::new(0, 100000000));
-        self.sink.stop();
-        self.sink.append(source);
+    fn beep(&self, beep: bool) {
+        if beep {
+            self.sink.play();
+        } else {
+            self.sink.pause();
+        }
     }
 }
 

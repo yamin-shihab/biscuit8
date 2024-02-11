@@ -227,79 +227,70 @@ impl Chip8 {
 
     /// Sets the register to the register.
     fn set_reg_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] = self.v[self.instruction.y()];
     }
 
     /// Applies a bitwise OR operation onto the register with the register.
     fn or_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] |= self.v[self.instruction.y()];
+        self.v[0xF] = 0;
     }
 
     /// Applies a bitwise AND operation onto the register with the register.
     fn and_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] &= self.v[self.instruction.y()];
+        self.v[0xF] = 0;
     }
 
     /// Applies a bitwise XOR operation onto the register with the register.
     fn xor_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.v[self.instruction.x()] ^= self.v[self.instruction.y()];
+        self.v[0xF] = 0;
     }
 
     /// Adds the register to the register and sets the flag register in the case of
     /// a carry.
     fn add_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        let result = self.v[x].overflowing_add(self.v[self.instruction.y()]);
+        self.v[x] = result.0;
+        self.v[0xF] = result.1 as u8;
     }
 
     /// Subtracts the register from the register and sets the flag register in the
     /// case of a borrow.
     fn sub_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        let result = self.v[x].overflowing_sub(self.v[self.instruction.y()]);
+        self.v[x] = result.0;
+        self.v[0xF] = !result.1 as u8;
     }
 
     /// Sets the flag register to the least significant bit and right shifts the
     /// register by one.
     fn shr_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        let lsb = self.v[x] & 1;
+        self.v[x] = self.v[self.instruction.y()] >> 1;
+        self.v[0xF] = lsb;
     }
 
     /// Sets the register to the register minus it and sets the flag register in the
     /// case of a borrow.
     fn rev_sub_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        let result = self.v[self.instruction.y()].overflowing_sub(self.v[x]);
+        self.v[x] = result.0;
+        self.v[0xF] = !result.1 as u8;
     }
 
     /// Sets the flag register to the most significant bit and left shifts the
     /// register by one.
     fn shl_reg(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        let x = self.instruction.x();
+        let msb = (self.v[x] >> 7) & 1;
+        self.v[x] = self.v[self.instruction.y()] << 1;
+        self.v[0xF] = msb;
     }
 
     /// Skips the next instruction if the register isn't equal to the register by
@@ -317,10 +308,7 @@ impl Chip8 {
 
     /// Sets the program counter to the address plus the first register.
     fn jump_add_addr(&mut self) {
-        todo!(
-            "Still have to implement the {} instruction.",
-            self.instruction
-        );
+        self.pc = self.instruction.nnn() + self.v[0x0] as usize;
     }
 
     /// Sets the register to the result of a bitwise AND operation on a random
@@ -336,9 +324,7 @@ impl Chip8 {
         let sprite = &self.ram[self.i..self.i + self.instruction.n()];
         let x = self.v[self.instruction.x()] as usize;
         let y = self.v[self.instruction.y()] as usize;
-        if self.screen.draw_sprite(sprite, x, y) {
-            self.v[15] = 1;
-        }
+        self.v[0xF] = self.screen.draw_sprite(sprite, x, y) as u8;
     }
 
     /// Skips the next instruction if the key represented in the register is
@@ -383,36 +369,38 @@ impl Chip8 {
 
     /// Adds the register to the index register.
     fn add_index_reg(&mut self) {
-        self.i += self.v[self.instruction.x()] as usize;
+        self.i = self.i.wrapping_add(self.v[self.instruction.x()] as usize);
     }
 
     /// Sets the index register to the font character represented by the register.
     fn set_index_char(&mut self) {
-        self.i = 5 * self.instruction.x();
+        self.i = 5 * self.v[self.instruction.x()] as usize;
     }
 
     /// Sets the location in RAM represented by the index register to the
     /// binary-coded decimal representation of the register (hundreds, tens, and
     /// ones all in decimal).
     fn set_index_bcd(&mut self) {
-        let x = self.instruction.x() as u8;
-        self.ram[self.i] = x % 10;
-        self.ram[self.i + 1] = x / 10 % 10;
-        self.ram[self.i + 2] = x / 100 % 10;
+        let vx = self.v[self.instruction.x()];
+        self.ram[self.i] = vx / 100 % 10;
+        self.ram[self.i + 1] = vx / 10 % 10;
+        self.ram[self.i + 2] = vx % 10;
     }
 
     /// Sets the location in RAM represented by the index register to the range of
     /// registers from the first to the register.
     fn set_index_reg(&mut self) {
         let x = self.instruction.x();
-        self.ram[self.i..=self.i + x].copy_from_slice(&self.v[0..=x]);
+        self.ram[self.i..=self.i + x].copy_from_slice(&self.v[0x0..=x]);
+        self.i += x + 1;
     }
 
     /// Sets the range of registers from the first to the register to the location
     /// in RAM represented by the index register.
     fn set_reg_index(&mut self) {
         let x = self.instruction.x();
-        self.v[0..=x].copy_from_slice(&self.ram[self.i..=self.i + x]);
+        self.v[0x0..=x].copy_from_slice(&self.ram[self.i..=self.i + x]);
+        self.i += x + 1;
     }
 }
 
