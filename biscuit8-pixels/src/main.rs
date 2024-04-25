@@ -3,7 +3,7 @@
 //! [`PixelsFrontend`]. Errors are also represented by [`PixelsFrontendError`].
 
 use biscuit8::{
-    args::{self, Args, ArgsError, Layout},
+    args::{self, argh, Args, ArgsError, Layout},
     chip8::{Chip8, Chip8Error},
     keys::Keys,
     screen::{self, Screen},
@@ -232,6 +232,8 @@ impl PixelsFrontend {
     }
 }
 
+/// Used to describe possible errors caused by pixels, winit, rodio, or the
+/// emulator.
 #[derive(Debug, Error)]
 pub enum PixelsFrontendError {
     #[error("{0}")]

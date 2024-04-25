@@ -2,7 +2,7 @@
 //! containing things like the path to the ROM and other options/settings.
 
 use crate::chip8::{Chip8, Chip8Error};
-use argh::FromArgs;
+pub use argh::{self, FromArgs};
 use std::{
     fmt::{Display, Error as FmtError, Formatter},
     fs,

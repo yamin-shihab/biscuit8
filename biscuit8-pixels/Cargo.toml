@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-
-argh = "0.1.12"
 biscuit8 = { path = ".." }
 pixels = "0.13.0"
 rodio = "0.17.3"
-thiserror = "1.0.56"
-winit = { version = "0.29.9", default-features = false, features = ["rwh_05", "x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita"] }
+thiserror = "1.0.59"
+winit = { version = "0.29.15", default-features = false, features = ["rwh_05", "x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita"] }

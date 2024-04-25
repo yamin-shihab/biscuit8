@@ -9,4 +9,4 @@ members = ["biscuit8-pixels"]
 [dependencies]
 argh = "0.1.12"
 fastrand = "2.0.1"
-thiserror = "1.0.56"
+thiserror = "1.0.59"
